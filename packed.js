@@ -11,13 +11,26 @@ var unpack = false
 async function main() 
 {
     const realArgs = process.argv.slice(2);
-    if (realArgs.length === 0)
+    if (realArgs.length < 1) 
     {
-        throw 'No mode selected'
+        throw 'Usage: packed <mode> [directory]'
     }
 
     unpack = realArgs[0].toLowerCase() === 'unpack' || realArgs[0].toLowerCase() === 'u';
-    const fullPath = process.cwd()
+    const directory = realArgs[1] ? realArgs[1] : process.cwd();
+
+    // Change to the specified directory if provided
+    if (realArgs[1]) {
+        try {
+            process.chdir(directory);
+            console.log(`Changed working directory to ${directory}`);
+        } catch (error) {
+            console.error(`Failed to change directory: ${error.message}`);
+            process.exit(1);
+        }
+    }
+
+    const fullPath = process.cwd();
     const files = await searchFiles(fullPath);
     await processFiles(files, unpack);
 }
@@ -34,7 +47,13 @@ async function searchFiles(directory)
         for (const fileName of fileNames) 
         {
             const filePath = path.join(directoryPath, fileName);
-            const stats = await fs.stat(filePath);
+            let stats;
+            try {
+                stats = await fs.stat(filePath);
+            } catch (error) {
+                console.error(`Skipping file due to error: ${filePath} - ${error.message}`);
+                continue;
+            }
 
             if (stats.isFile() && fileName.endsWith(env.WEBP_EXTENSION_SLUG)) 
             {
@@ -45,15 +64,16 @@ async function searchFiles(directory)
                 else 
                 {
                     const txtFilePath = path.join(directoryPath, fileName.slice(0, -env.WEBP_EXTENSION_SLUG.length) + env.TXT_EXTENSION_SLUG);
-                    if (await fs.access(txtFilePath).then(() => true).catch(() => false)) 
-                    {
+                    try {
+                        await fs.access(txtFilePath);
                         filesList.push(filePath);
+                    } catch (error) {
+                        console.error(`Skipping file due to error: ${txtFilePath} - ${error.message}`);
                     }
                 }
             } 
             else if (stats.isDirectory()) 
             {
-                // Рекурсивно вызываем функцию для подпапки
                 const subfolderFiles = await searchFiles(filePath);
                 filesList.push(...subfolderFiles);
             }
@@ -63,7 +83,7 @@ async function searchFiles(directory)
     } 
     catch (error) 
     {
-        console.error('Error while searching files:', error);
+        console.error(`Error while searching files: ${directoryPath} - ${error.message}`);
         return [];
     }
 }
