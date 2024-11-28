@@ -41,30 +41,31 @@ function unpack(packedWebpFile)
     }
 }
 
-function pack(unpackedWebpFile, unpackedTxtFile) 
-{
+function pack(unpackedWebpFile, unpackedTxtFile) {
     console.log(`Packing file: ${unpackedWebpFile}`);
     const data = fs.readFileSync(unpackedWebpFile);
-    const textData = fs.readFileSync(unpackedTxtFile, 'utf-8');
+    const textData = fs.readFileSync(unpackedTxtFile, 'utf-8').trim();  // Trimming the text data to remove any extra spaces or newlines
 
-    const extrLen = Buffer.alloc(4)
-    extrLen.writeUInt32LE(textData.length)
+    const extrLen = Buffer.alloc(4);
+    extrLen.writeUInt32LE(textData.length);
     const extr = Buffer.concat([env.EXTR_HEADER, extrLen, Buffer.from(textData, 'utf-8')]);
-    let webpDataWithExtrData;
 
-    if (textData.length % 2 == 0)
-    {
+    let webpDataWithExtrData;
+    if (textData.length % 2 === 0) {
         webpDataWithExtrData = Buffer.concat([data.subarray(8), extr]);
-    } 
-    else 
-    {
+    } else {
         webpDataWithExtrData = Buffer.concat([data.subarray(8), extr, Buffer.from([0])]);
     }
 
-    //new_data = data[:4] + len(webp_data_with_extr_data).to_bytes(4, byteorder='little') + webp_data_with_extr_data//
-    const webpDataWithExtrDataLen = Buffer.alloc(4)
+    const webpDataWithExtrDataLen = Buffer.alloc(4);
     webpDataWithExtrDataLen.writeUInt32LE(webpDataWithExtrData.length);
-    const newBuffer = Buffer.concat([data.subarray(0, 4), webpDataWithExtrDataLen, webpDataWithExtrData])
+
+    // Verify the sections of the buffer before concatenation
+    console.log(`WEBP data length: ${data.length}`);
+    console.log(`Extr data length: ${extr.length}`);
+    console.log(`Packed data length: ${webpDataWithExtrData.length}`);
+
+    const newBuffer = Buffer.concat([data.subarray(0, 4), webpDataWithExtrDataLen, webpDataWithExtrData]);
 
     fs.unlinkSync(unpackedWebpFile);
     fs.unlinkSync(unpackedTxtFile);
